@@ -1,0 +1,9 @@
+{
+  "default_page": "index.html",
+  "file_dir": "public",
+  "custom_api": "api.lua",
+  "modules": {
+  },
+  "event_handler": {
+  }
+}

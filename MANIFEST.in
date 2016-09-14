@@ -1,0 +1,4 @@
+include README.md
+include VERSION
+include bin/exosite
+include exosite.py

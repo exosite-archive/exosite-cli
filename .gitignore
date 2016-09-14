@@ -1,0 +1,9 @@
+.tox
+exoapi.tgz
+murano.tgz
+dist/
+build/
+exosite.egg-info/
+exosite.tgz
+VERSION
+.Solutionfile.secret
