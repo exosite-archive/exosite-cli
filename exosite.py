@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import os
+import re
 import time
 import sys
 import readline
@@ -167,8 +168,17 @@ def init_credential(host):
     private = {}
     print("Please log in with your Murano email and password, and " +
           "\nchoose an existing solution ID and product ID.")
-    private["email"] = line_input("Email: ")
-    private["password"] = getpass.getpass()
+    while True:
+        email_input = line_input("Email: ")
+        if re.match(r"[^@]+@[^@]+\.[^@]+", email_input):
+            break
+        print("Invalid email format.")
+    private["email"] = email_input
+    while True:
+        password_input=getpass.getpass()
+        if password_input:
+            break
+    private["password"] = password_input
     sys.stdout.write("Testing those credentials... ")
     token = get_token(host, private['email'], private['password'])
     if token is None:
@@ -176,6 +186,7 @@ def init_credential(host):
             "Unable to log in with those credentials. Be sure to \npass \
             --host if you're working with a development server"
         )
+        sys.exit(0)
     else:
         print("OK")
 
