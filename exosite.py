@@ -249,7 +249,16 @@ class Product:
     def sn_enable(self, sn):
         ret = self.session.post(self.url_base + "/device/" + sn)
         ret.raise_for_status()
-        return ret.json()
+        rid = ret.json()['rid']
+        ret = self.aggregate_rpc('', calls = self.compose_calls('map', ['alias', rid, sn]))
+        if ret[0]['status'] == 'ok':
+            ret = self.aggregate_rpc('', calls = self.compose_calls('update', [{'alias': sn}, {'name': sn}]))
+            if ret[0]['status'] == 'ok':
+                return rid
+            else:
+                return ret[0]['status']
+        else:
+            return ret[0]['status']
 
     def model_list_sn(self):
         ret = self.session.get(self.url_base + "/proxy/provision/manage/model/" + self.product_id + "/")
