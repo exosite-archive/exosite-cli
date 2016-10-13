@@ -302,22 +302,22 @@ class Product:
         else:
             return ret
 
-    def read(self, sn, alias):
+    def read(self, identity, alias):
         ret = self.aggregate_rpc(
-            client_alias = sn,
+            client_alias = identity,
             calls = self.compose_calls('read', [{'alias': alias}, {'limit': 1}])
         )
         if ret[0]['status'] == 'ok':
             if len(ret[0]['result']) == 1:
                 return "%s [%s]" % (ret[0]['result'][0][1], datetime.datetime.fromtimestamp(ret[0]['result'][0][0]).strftime('%Y-%m-%d %H:%M:%S'))
             else:
-                return "Device '%s' with alias '%s' has no value" % (sn, alias)
+                return "Identity '%s' with alias '%s' has no value" % (identity, alias)
         else:
             return ret[0]['status']
 
-    def write(self, sn, alias, value):
+    def write(self, identity, alias, value):
         ret = self.aggregate_rpc(
-            client_alias = sn,
+            client_alias = identity,
             calls = self.compose_calls('write', [{'alias': alias}, value])
         )
         if ret[0]['status'] == 'ok':
@@ -798,12 +798,12 @@ def main():
     parser.add_argument("-c", "--update_cors", required=False,
                         action='store_true', help='Update cors configuration')
 
-    parser.add_argument("--enable_sn", metavar=('<sn>'), nargs=1, help='Add new serial number', required=False)
+    parser.add_argument("--enable_identity", metavar=('<identity>'), nargs=1, help='Add new identity', required=False)
 
     parser.add_argument("--logs", metavar=('tail'), nargs="?", const='once', default=None, help='Script log information')
 
-    parser.add_argument("--read", metavar=('<sn>', '<alias>'), nargs=2, help='Read data from resource', required=False)
-    parser.add_argument("--write",metavar=('<sn>', '<alias>', '<value>'), nargs=3, help='Write data to resource', required=False)
+    parser.add_argument("--read", metavar=('<identity>', '<alias>'), nargs=2, help='Read data from resource', required=False)
+    parser.add_argument("--write",metavar=('<identity>', '<alias>', '<value>'), nargs=3, help='Write data to resource', required=False)
     parser.add_argument("--tree", action='store_true', required=False, help = 'Listing resources')
     parser.add_argument("--watch", action='store_true', required=False, help = 'Watch for modified files and deploy automatically')
     parser.add_argument("--open", metavar=('product|solution'), nargs="?", const='domain', default=None, help = 'Open solution/product url in browser')
@@ -847,9 +847,9 @@ def main():
     args.update_cors = args.update_cors or args.deploy
     if not (args.upload_api or args.upload_static or args.upload_modules or
             args.upload_eventhandler or args.upload_productid or args.update_cors or
-            args.enable_sn or args.read or args.write or args.tree or
+            args.enable_identity or args.read or args.write or args.tree or
             args.watch or (args.open is not None) or (args.logs is not None)):
-        print("One option of -a, -s, -e, -m, -p, --read, --write, --tree, --enable_sn, --watch, --open, --logs or --deploy must be set")
+        print("One option of -a, -s, -e, -m, -p, --read, --write, --tree, --enable_identity, --watch, --open, --logs or --deploy must be set")
         sys.exit(0)
 
     private = get_config(SECRET_FILE)
@@ -882,9 +882,9 @@ def main():
         sys.exit(0)
 
     prod = Product(host, token, product_id)
-    if args.enable_sn:
-        print("Enable new serial number...")
-        print("  {0} {1}".format(product_id, prod.sn_enable(args.enable_sn[0])))
+    if args.enable_identity:
+        print("Enable new identity...")
+        print("  {0} {1}".format(product_id, prod.sn_enable(args.enable_identity[0])))
         sys.exit(0)
 
     if args.read:
