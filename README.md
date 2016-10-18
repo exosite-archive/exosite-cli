@@ -45,10 +45,11 @@ usage: exosite [-h] [--host [HOST]] [-k] [-p] [-s] [-a] [-e] [-m] [--deploy] [--
                       Upload event handler
 -m, --upload_modules  Upload modules
 -c, --update_cors     Update cors configuration
---enable_sn <sn>      Add new serial number
+--enable_identity <identity> Add identity
+--delete_identity <identity> Delete identity
 --logs [tail]         Script log information
---read <sn> <alias>   Read data from resource
---write <sn> <alias> <value>
+--read <identity> <alias>  Read data from resource
+--write <identity> <alias> <value>
                       Write data to resource
 --tree                Listing resources
 --watch               Watch for modified files and deploy automatically
@@ -103,7 +104,8 @@ usage: exosite [-h] [--host [HOST]] [-k] [-p] [-s] [-a] [-e] [-m] [--deploy] [--
   }
   "cors": {
     "origin": ["http://localhost:*"],
-    "methods":["get", "post"],
+    "methods": ["get", "post"],
+    "headers": ["accept", "content-type", "authorization"],
     "expose_headers": ["X-Key"],
     "credentials": true
   }
