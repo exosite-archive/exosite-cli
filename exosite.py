@@ -245,12 +245,23 @@ def get_token(host, email, password):
         print("Unexpected exception: {0}".format(str(e)))
     return None
 
+def parse(ret):
+    class Result:
+        def __init__(self, status, result):
+            self.status = status
+            self.result = result
+    status = ret[0]['status']
+    result = None
+    if status == 'ok' and 'result' in ret[0]:
+        result = ret[0]['result']
+    return Result(status, result)
+
 class Product:
     def __init__(self, host, token, product_id):
         self.token = token
         self.host = host
         self.product_id = product_id
-        self.url_base = self.host + '/product/' + self.product_id
+        self.url_base = "%s/product/%s" % (self.host, self.product_id)
         self.session = session
         self.session.headers.update({
             "content-type": "application/json",
@@ -258,21 +269,30 @@ class Product:
         })
 
     def sn_enable(self, sn):
-        ret = self.session.post(self.url_base + "/device/" + sn)
+        ret = self.session.post("%s/device/%s" % (self.url_base, sn))
         ret.raise_for_status()
         rid = ret.json()['rid']
-        ret = self.aggregate_rpc('', calls = self.compose_calls('map', ['alias', rid, sn]))
-        if ret[0]['status'] == 'ok':
-            ret = self.aggregate_rpc('', calls = self.compose_calls('update', [{'alias': sn}, {'name': sn}]))
-            if ret[0]['status'] == 'ok':
+        msg = parse(self.aggregate_rpc('', calls = self.compose_calls('map', ['alias', rid, sn])))
+        if msg.status == 'ok':
+            msg = parse(self.aggregate_rpc('', calls = self.compose_calls('update', [{'alias': sn}, {'name': sn}])))
+            if msg.status == 'ok':
                 return rid
             else:
-                return ret[0]['status']
+                return msg.status
         else:
-            return ret[0]['status']
+            return msg.status
+
+    def sn_delete(self, sn):
+        ret = parse(self.aggregate_rpc('', calls = self.compose_calls('drop', [{'alias': sn}])))
+        if ret.status == 'ok':
+            ret = self.session.delete("%s/proxy/provision/manage/model/%s/%s" % (self.url_base, self.product_id, sn))
+            ret.raise_for_status()
+            return 'ok'
+        else:
+            return ret.status
 
     def model_list_sn(self):
-        ret = self.session.get(self.url_base + "/proxy/provision/manage/model/" + self.product_id + "/")
+        ret = self.session.get("%s/proxy/provision/manage/model/%s/" % (self.url_base, self.product_id))
         ret.raise_for_status()
         return ret.text
 
@@ -303,27 +323,27 @@ class Product:
             return ret
 
     def read(self, identity, alias):
-        ret = self.aggregate_rpc(
+        ret = parse(self.aggregate_rpc(
             client_alias = identity,
             calls = self.compose_calls('read', [{'alias': alias}, {'limit': 1}])
-        )
-        if ret[0]['status'] == 'ok':
-            if len(ret[0]['result']) == 1:
-                return "%s [%s]" % (ret[0]['result'][0][1], datetime.datetime.fromtimestamp(ret[0]['result'][0][0]).strftime('%Y-%m-%d %H:%M:%S'))
+        ))
+        if ret.status == 'ok':
+            if len(ret.result) == 1:
+                return "%s [%s]" % (ret.result[0][1], datetime.datetime.fromtimestamp(ret.result[0][0]).strftime('%Y-%m-%d %H:%M:%S'))
             else:
                 return "Identity '%s' with alias '%s' has no value" % (identity, alias)
         else:
-            return ret[0]['status']
+            return ret.status
 
     def write(self, identity, alias, value):
-        ret = self.aggregate_rpc(
+        ret = parse(self.aggregate_rpc(
             client_alias = identity,
             calls = self.compose_calls('write', [{'alias': alias}, value])
-        )
-        if ret[0]['status'] == 'ok':
-            return datetime.datetime.fromtimestamp(ret[0]['result']).strftime('%Y-%m-%d %H:%M:%S')
+        ))
+        if ret.status == 'ok':
+            return datetime.datetime.fromtimestamp(ret.result).strftime('%Y-%m-%d %H:%M:%S')
         else:
-            return ret[0]['status']
+            return ret.status
 
     def tree(self):
         raw = self.model_list_sn()
@@ -350,6 +370,8 @@ class Product:
         info = {}
         iid = 0
         for item in ret:
+            if item['status'] != 'ok':
+                continue
             client_rid = rev[item["id"]]
             client_name = item['result']['description']['name']
             client_sn = sns[client_rid]
@@ -373,7 +395,6 @@ class Product:
             client_alias = '',
             calls = icalls
         )
-
         obj = {}
         for dat in iret:
             sn = irev[dat['id']][0]
@@ -409,17 +430,17 @@ class User:
         })
 
     def get_businesses(self):
-        ret = session.get(self.host + "/user/" + self.email + "/membership/")
+        ret = session.get("%s/user/%s/membership/" % (self.host, self.email))
         ret.raise_for_status()
         return ret.json()
 
     def get_products(self, bizid):
-        ret = session.get(self.host + "/business/" + bizid + "/product/")
+        ret = session.get("%s/business/%s/product/" % (self.host, bizid))
         ret.raise_for_status()
         return ret.json()
 
     def get_solutions(self, bizid):
-        ret = session.get(self.host + "/business/" + bizid + "/solution/")
+        ret = session.get("%s/business/%s/solution/" % (self.host, bizid))
         ret.raise_for_status()
         return ret.json()
 
@@ -479,6 +500,7 @@ class Solution:
                 headers = headers,
                 params = {'polling': "true" if stream else "false"},
                 stream = stream)
+
             if stream:
                 for line in r.iter_lines():
                     if line:
@@ -799,6 +821,7 @@ def main():
                         action='store_true', help='Update cors configuration')
 
     parser.add_argument("--enable_identity", metavar=('<identity>'), nargs=1, help='Add new identity', required=False)
+    parser.add_argument("--delete_identity", metavar=('<identity>'), nargs=1, help='Delete identity', required=False)
 
     parser.add_argument("--logs", metavar=('tail'), nargs="?", const='once', default=None, help='Script log information')
 
@@ -845,11 +868,16 @@ def main():
     args.upload_eventhandler = args.upload_eventhandler or args.deploy
     args.upload_productid = args.upload_productid or args.deploy
     args.update_cors = args.update_cors or args.deploy
-    if not (args.upload_api or args.upload_static or args.upload_modules or
-            args.upload_eventhandler or args.upload_productid or args.update_cors or
-            args.enable_identity or args.read or args.write or args.tree or
-            args.watch or (args.open is not None) or (args.logs is not None)):
-        print("One option of -a, -s, -e, -m, -p, --read, --write, --tree, --enable_identity, --watch, --open, --logs or --deploy must be set")
+    def check_args():
+        if (args.upload_api or args.upload_static or args.upload_modules or
+            args.upload_eventhandler or args.upload_productid or
+            args.update_cors or args.enable_identity or args.delete_identity or
+            args.read or args.write or args.tree or args.watch or
+            (args.open is not None) or (args.logs is not None)):
+            return True
+        return False
+    if  not check_args():
+        print("One option of -a, -s, -e, -m, -p, --read, --write, --tree, --enable_identity, --delete_identity, --watch, --open, --logs or --deploy must be set")
         sys.exit(0)
 
     private = get_config(SECRET_FILE)
@@ -883,8 +911,13 @@ def main():
 
     prod = Product(host, token, product_id)
     if args.enable_identity:
-        print("Enable new identity...")
+        print("Add identity...")
         print("  {0} {1}".format(product_id, prod.sn_enable(args.enable_identity[0])))
+        sys.exit(0)
+
+    if args.delete_identity:
+        print("Delete identity...")
+        print("  {0} {1}".format(product_id, prod.sn_delete(args.delete_identity[0])))
         sys.exit(0)
 
     if args.read:
