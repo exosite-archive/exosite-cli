@@ -43,7 +43,7 @@ pool = ThreadPool(4)
 
 SECRET_FILE = '.Solutionfile.secret'
 CONFIG_FILE = 'Solutionfile.json'
-VERSION = '0.23'
+VERSION = '0.24'
 LATEST_FORMAT_VERSION = '0.3'
 PREVIOUS_FORMAT_VERSION = '0.2'
 
