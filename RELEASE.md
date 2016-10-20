@@ -1,6 +1,9 @@
 # Release Process
 
 ```
+git fetch -p
+git merge development # Or git merge <SHA>
+
 export VSN="<NEW VERSION NUMBER>"
 
 echo $VSN > VERSION
