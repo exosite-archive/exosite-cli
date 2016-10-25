@@ -5,6 +5,7 @@ import os
 import re
 import time
 import sys
+import base64
 import readline
 import urllib3
 import httplib
@@ -67,8 +68,27 @@ PUB_CONF_DESC = {
     }
 }
 
+DATA_SEPARATOR = '@@@'
+
 def admin_domain(host):
     return host.lower().replace(".hosted.exosite.io", ".io/business").replace("bizapi", "www.exosite")
+
+def is_ascii(msg):
+    try:
+        msg.decode('ascii')
+        return True
+    except:
+        return False
+
+def encode(msg):
+    return base64.b64encode(msg) if is_ascii(msg) else None
+
+def decode(msg):
+    try:
+        decoded_str = base64.b64decode(msg)
+        return decoded_str if is_ascii(decoded_str) else None
+    except:
+        return None
 
 def file_only(path):
     return True if os.path.dirname(path) == '' else False
@@ -163,6 +183,15 @@ def pick_from_list(promptText, items, keys, headings):
                 len(matches), item_id))
     return selected_item
 
+def write_secret_file(data):
+    try:
+        with open(SECRET_FILE, "w") as fh:
+            fh.write(json.dumps(data))
+        os.chmod(SECRET_FILE, 0o600)
+        return True
+    except Exception as e:
+        print("Unable to generate credential: {0}".format(str(e)))
+    return False
 
 def init_credential(host):
     private = {}
@@ -178,9 +207,8 @@ def init_credential(host):
         password_input=getpass.getpass()
         if password_input:
             break
-    private["password"] = password_input
     sys.stdout.write("Testing those credentials... ")
-    token = get_token(host, private['email'], private['password'])
+    token = get_token(host, private['email'], password_input)
     if token is None:
         print(
             "Unable to log in with those credentials. Be sure to \npass \
@@ -188,6 +216,7 @@ def init_credential(host):
         )
         sys.exit(0)
     else:
+        private['credential'] = encode("%s%s%s" % (email_input, DATA_SEPARATOR, password_input))
         print("OK")
 
     # get user's business memberships
@@ -221,15 +250,9 @@ def init_credential(host):
                              ('Product ID', 'Label', 'Business'))
     private['product_id'] = product['modelId']
 
-    try:
-        with open(SECRET_FILE, "w") as fh:
-            fh.write(json.dumps(private))
-        os.chmod(SECRET_FILE, 0o600)
+    if write_secret_file(private):
         print("Successfully created credential file '{0}'. ".format(SECRET_FILE) +
               "To deploy your solution, run 'exosite --deploy'.")
-    except Exception as e:
-        print("Unable to generate credential: {0}".format(str(e)))
-
 
 def get_token(host, email, password):
     srv_url = host + '/token/'
@@ -884,7 +907,20 @@ def main():
     solution_id = private['solution_id']
     product_id = private['product_id']
     # get token
-    token = get_token(host, private['email'], private['password'])
+    password = None
+    write_flag = False
+    if 'credential' in private:
+        data = decode(private['credential'])
+        if data:
+            arr = data.split(DATA_SEPARATOR, 1)
+            password = arr[1] if len(arr) == 2 else ""
+    else:
+        password = private['password']
+        write_flag = True
+    if not password:
+        print "Invalid credential"
+        exit(0)
+    token = get_token(host, private['email'], password)
     if not token:
         print(
             "Username/Password is not valid for server '{0}', please ".
@@ -892,6 +928,10 @@ def main():
             "update credential file or run with --init option "
         )
         exit(0)
+    if write_flag:
+        private['credential'] = encode("%s%s%s" % (private['email'], DATA_SEPARATOR, password))
+        private.pop('password', None)
+        write_secret_file(private)
 
     napi = Solution(host, token, solution_id)
     domain_name = napi.get_solution()["domain"]
