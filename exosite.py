@@ -632,12 +632,13 @@ class Solution:
         return list(new_assets.keys()) + list(existing_files.keys())
 
     def upload_file(self, asset):
+        asset_path = asset['path'].replace('\\', '/')
         resp = self.put(
-            "/fileupload" + asset['path'],
+            "/fileupload" + asset_path,
             files={"file": (asset['name'], open(asset['full_path'], 'rb'), asset['mime_type'])},
             headers={"content-type": None}
         )
-        print("  {0} {1} {2}".format(asset['path'], asset['checksum'], json.dumps(resp)))
+        print("  {0} {1} {2}".format(asset_path, asset['checksum'], json.dumps(resp)))
 
     def upload_productid(self, pid):
         item = self.get_product_serviceconfig()
@@ -708,21 +709,21 @@ class Watcher:
         for item in self.conf:
             if self.format.routes == item:
                 path = self.conf[item]
-                key = "./" +  path if file_only(path) else path
+                key = ".%s" % os.sep +  path if file_only(path) else path
                 targets[key] = [self.format.routes]
             if self.format.assets == item:
-                targets[self.conf[item] + "/*"] = [self.format.assets]
+                targets[self.conf[item] + "%s*" % os.sep] = [self.format.assets]
                 file_dir = self.conf[item]
             if self.format.modules == item:
                 for name, path in self.conf[item].iteritems():
-                    key = "./" + path if file_only(path) else path
+                    key = ".%s" % os.sep + path if file_only(path) else path
                     targets[key] = [self.format.modules, name]
             if self.format.services == item:
                 services = self.conf[item]
                 for service in services:
                     for event in services[service]:
                         path = self.conf[item][service][event]
-                        key = "./" + path if file_only(path) else path
+                        key = ".%s" % os.sep  + path if file_only(path) else path
                         targets[key] = [self.format.services, service, event]
 
         handler = UpdateHandler(self.napi, targets, self.product_id, self.conf, self.format)
