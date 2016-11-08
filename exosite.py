@@ -573,17 +573,22 @@ class Solution:
                 continue
             try:#skip invalid format
                 signature, script = raw.split('\n', 1)
-                method, path = signature.split(' ')
             except:
                 continue
-            path = path.strip()
+            arr = signature.split(' ')
+            if len(arr) <= 1 or len(arr) >= 4 :
+                continue
+            method = arr[0]
+            path = arr[1]
+            content_type = arr[2] if len(arr) == 3 else 'application/json'
             endpoint = {
                 'method': method,
                 'path': path,
                 'script': script,
+                'content_type': content_type
             }
             key = method.lower() + path.lower()
-            if key in existing_endpoints and existing_endpoints[key]['script'] == script:
+            if key in existing_endpoints and existing_endpoints[key]['script'] == script and existing_endpoints[key]['content_type'] == content_type:
                 del existing_endpoints[key]
             else:
                 new_endpoints[key] = endpoint
