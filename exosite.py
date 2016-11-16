@@ -1005,9 +1005,12 @@ def main():
         if file_format.modules in public:
             modules = public[file_format.modules]
             for modulename in modules:
-                with open(modules[modulename], 'r') as fh:
-                    content = fh.read().replace("$PRODUCT_ID", product_id)
-                napi.update_module(modulename, content)
+                try:
+                    with open(modules[modulename], 'r') as fh:
+                        content = fh.read().replace("$PRODUCT_ID", product_id)
+                        napi.update_module(modulename, content)
+                except Exception, e:
+                    print e
         else:
             print("no modules found!")
     # update custom api
