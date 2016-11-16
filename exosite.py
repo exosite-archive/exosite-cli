@@ -588,11 +588,11 @@ class Solution:
                 'content_type': content_type
             }
             key = method.lower() + path.lower()
-            if key in existing_endpoints and existing_endpoints[key]['script'] == script and existing_endpoints[key]['content_type'] == content_type:
-                del existing_endpoints[key]
+            if key in existing_endpoints and existing_endpoints[key]['script'] == script:
+                if existing_endpoints[key]['method'] == 'get' or existing_endpoints[key]['method'] == 'websocket' or existing_endpoints[key]['content_type'] == content_type:
+                    del existing_endpoints[key]
             else:
                 new_endpoints[key] = endpoint
-
         if len(existing_endpoints) > 0:
             sys.stdout.write('  Deleting old endpoints')
             pool.map(lambda k: self.delete_endpoint(existing_endpoints[k]['id']), existing_endpoints)
