@@ -548,6 +548,9 @@ class Solution:
         sys.stdout.flush()
         return self.delete('/endpoint/' + id)
 
+    def incr_deploy(self):
+        return self.post('/deploy/incr')
+
     def update_cors(self, config):
         return self.put('/cors', json=config)
 
@@ -1042,6 +1045,10 @@ def main():
             cors = public["cors"]
         print(napi.update_cors(cors))
         print(napi.get_cors())
+
+
+    if args.deploy:
+        napi.incr_deploy()
 
     if args.open != None:
         if args.open == 'solution':
