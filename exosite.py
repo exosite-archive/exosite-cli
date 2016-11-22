@@ -8,7 +8,6 @@ import sys
 import base64
 import readline
 import urllib3
-import httplib
 import json
 import argparse
 import getpass
@@ -24,9 +23,14 @@ from distutils.version import LooseVersion
 from multiprocessing.dummy import Pool as ThreadPool
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+try:
+  import httplib
+except:
+  import http.client as httplib
 
-reload(sys)
-sys.setdefaultencoding('utf8')
+if sys.version_info < (3, 0, 0):
+    reload(sys)
+    sys.setdefaultencoding('utf8')
 
 urllib3.disable_warnings()
 requests.packages.urllib3.disable_warnings()
@@ -75,13 +79,17 @@ def admin_domain(host):
 
 def is_ascii(msg):
     try:
-        msg.decode('ascii')
-        return True
-    except:
-        return False
+         msg.decode('ascii')
+         return True
+    except Exception as e:
+         print(e)
+         return False
 
 def encode(msg):
-    return base64.b64encode(msg) if is_ascii(msg) else None
+    if sys.version_info >= (3, 0, 0):
+        return str(base64.b64encode(msg.encode('ascii')), 'utf-8')
+    else:
+        return base64.b64encode(msg) if is_ascii(msg) else None
 
 def decode(msg):
     try:
@@ -216,7 +224,8 @@ def init_credential(host):
         )
         sys.exit(0)
     else:
-        private['credential'] = encode("%s%s%s" % (email_input, DATA_SEPARATOR, password_input))
+        cred = "%s%s%s" % (email_input, DATA_SEPARATOR, password_input)
+        private['credential'] = encode(cred)
         print("OK")
 
     # get user's business memberships
@@ -405,7 +414,7 @@ class Product:
             info[client_sn]["name"] = client_name
             if item['result']['aliases'] == []:
                 continue
-            for dp_rid, aliases in item['result']['aliases'].iteritems():
+            for dp_rid, aliases in item['result']['aliases'].items():
                 iid += 1
                 icalls.extend(self.compose_calls('info', [dp_rid, {"description": True}], iid))
                 irev[iid] = [client_sn, aliases[0]]
@@ -488,7 +497,6 @@ class Solution:
 
         if r.status_code >= 400:
             print(" Request:  {0} \n failed with status: {1} \n Request: \n {2} \n Response: \n {3}".format(self.url(append), r.status_code, kwargs, r.text))
-
         r.raise_for_status()
         if r.text == "":
             return r.status_code
@@ -718,7 +726,7 @@ class Watcher:
                 targets[self.conf[item] + "%s*" % os.sep] = [self.format.assets]
                 file_dir = self.conf[item]
             if self.format.modules == item:
-                for name, path in self.conf[item].iteritems():
+                for name, path in self.conf[item].items():
                     key = ".%s" % os.sep + path if file_only(path) else path
                     targets[key] = [self.format.modules, name]
             if self.format.services == item:
@@ -758,21 +766,21 @@ class UpdateHandler(FileSystemEventHandler):
                 if info[0] == self.format.routes:
                     try:
                         self.napi.update_custom_api(event.src_path)
-                    except Exception, e:
+                    except Exception as e:
                         print(e.response)
                 elif info[0] == self.format.services:
                     with open(event.src_path, 'r') as fh:
                         content = fh.read().replace("$PRODUCT_ID", self.product_id)
                         try:
                             self.napi.update_eventhandler(info[1], info[2], content)
-                        except Exception, e:
+                        except Exception as e:
                             print(e.response)
                 elif info[0] ==  self.format.modules:
                     with open(event.src_path, 'r') as fh:
                         content = fh.read().replace("$PRODUCT_ID", self.product_id)
                         try:
                             self.napi.update_module(info[1], content)
-                        except Exception, e:
+                        except Exception as e:
                             print(e.response)
             elif os.path.dirname(event.src_path) == self.conf[self.format.assets]:
                 assets = gen_assets(self.conf[self.format.assets], self.conf[self.format.default_page])
@@ -872,7 +880,7 @@ def main():
     args = parser.parse_args()
 
     if (args.host is None):
-        print "--host option need to provide server name"
+        print("--host option need to provide server name")
         sys.exit(0)
 
     host = "https://" + args.host.lower() + "/api:1"
@@ -921,13 +929,16 @@ def main():
     if 'credential' in private:
         data = decode(private['credential'])
         if data:
-            arr = data.split(DATA_SEPARATOR, 1)
+            if type(data) == str:
+                arr = data.split(DATA_SEPARATOR, 1)
+            else:
+                arr = str(data, 'utf-8').split(DATA_SEPARATOR, 1)
             password = arr[1] if len(arr) == 2 else ""
     else:
         password = private['password']
         write_flag = True
     if not password:
-        print "Invalid credential"
+        print("Invalid credential")
         exit(0)
     token = get_token(host, private['email'], password)
     if not token:
@@ -1013,8 +1024,8 @@ def main():
                     with open(modules[modulename], 'r') as fh:
                         content = fh.read().replace("$PRODUCT_ID", product_id)
                         napi.update_module(modulename, content)
-                except Exception, e:
-                    print e
+                except Exception as e:
+                    print(e)
         else:
             print("no modules found!")
     # update custom api
@@ -1058,7 +1069,7 @@ def main():
         elif args.open == 'domain':
             webbrowser.open_new_tab("https://{0}".format(domain_name))
         else:
-            print ("Invalid argument for --open option")
+            print("Invalid argument for --open option")
         sys.exit(0)
 
     if args.watch:
@@ -1074,4 +1085,4 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as e:
-        print e.message
+        print(e)
