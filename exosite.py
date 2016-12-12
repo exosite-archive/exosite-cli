@@ -653,7 +653,8 @@ class Solution:
     def upload_productid(self, pid):
         item = self.get_product_serviceconfig()
         if item is not None:
-            item["triggers"] = {"pid": [pid], "vendor": [pid]}
+            item["parameters"] = {"pid": [pid]}
+            item["triggers"] = {"pid": [pid]}
             return self.put(
                 "/serviceconfig/" + item["id"],
                 json = item
