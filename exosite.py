@@ -124,10 +124,9 @@ def gen_assets(file_dir, default_page):
         for name in files:
             full_path = os.path.join(root, name)
             checksum = sha1(full_path)
-            if name == default_page:
+            target_path = full_path[len(file_dir):]
+            if target_path == '/' + default_page:
                 target_path = '/'
-            else:
-                target_path = full_path[len(file_dir):]
             (mime_type, encoding) = mimetypes.guess_type(full_path)
             if mime_type is None:
                 mime_type = 'application/binary'
