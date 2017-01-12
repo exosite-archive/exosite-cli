@@ -1,0 +1,110 @@
+#!/bin/sh
+# Exosite configuration helper script
+
+# Copyright (c) 2017 Exosite
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this
+# software and associated documentation files (the "Software"), to deal in the
+# Software without restriction, including without limitation the rights to use, copy,
+# modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
+# and to permit persons to whom the Software is furnished to do so, subject to the
+# following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+# CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE
+# OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+PROG=$(basename $0)
+
+function usage() #{{{
+{
+  echo "$PROG - Environment helper script for exosite-cli."
+  echo ""
+  echo "usage:"
+  echo "  $PROG ENV_LABEL"
+  echo ""
+  echo "ENV_LABEL = An exosite-cli environment label that will become a symlink"
+  echo "            to a configuration file for the specified environment."
+  echo ""
+  echo "            Example:"
+  echo "              ENV_LABEL=dev"
+  echo "            Creates a symlink:"
+  echo "              .Solutionfile.secret -> .Solutionfile.secret.dev"
+  echo ""
+}
+#}}}
+
+if [ -z "$1" ]; then
+  usage
+  exit 1
+fi
+
+ENV_LABEL="$1"
+
+BASE_FILE=".Solutionfile.secret"
+NEW_FILE="${BASE_FILE}.${ENV_LABEL}"
+if [ ! -r "$BASE_FILE" -a ! -h "$BASE_FILE" -a ! -r "$NEW_FILE" ]; then
+  if [ ! -r "$NEW_FILE" ]; then
+    echo "$NEW_FILE does NOT exist."
+    if [ ! -r "$BASE_FILE" ]; then
+      echo "Missing: $BASE_FILE"
+      echo "Execute:"
+      echo "  exosite --init"
+    fi
+  else
+    echo "Missing: $BASE_FILE"
+    echo "Execute:"
+    echo "  exosite --init"
+  fi
+  echo "Aborting..."
+  exit 1
+fi
+
+if [ ! -r "$NEW_FILE" ]; then
+  if [ -h "$BASE_FILE" ]; then
+    echo "$NEW_FILE does NOT exist."  # and $BASE_FILE is already symlinked."
+    OLD_FILE=$(readlink $BASE_FILE)
+    if [ "$OLD_FILE" == "$NEW_FILE" ]; then
+      echo "$BASE_FILE is symlinked to non-existent file $NEW_FILE"
+      # rm $BASE_FILE
+      # echo "Removed unresolved symlink $BASE_FILE"
+    fi
+    echo "Aborting..."
+    exit 1
+  elif [ ! -r "$BASE_FILE" ]; then
+    echo "$BASE_FILE and $NEW_FILE do NOT exist."
+    echo "Aborting..."
+    exit 1
+  fi
+  echo "Moving $BASE_FILE to $NEW_FILE ..."
+  mv $BASE_FILE $NEW_FILE
+  echo "Creating $ENV_LABEL symlink for $NEW_FILE ..."
+  ln -sf $NEW_FILE $BASE_FILE
+  echo "Changed exosite-cli environment to $ENV_LABEL"
+else
+  if [ -h "$BASE_FILE" ]; then
+    OLD_FILE=$(readlink $BASE_FILE)
+    if [ "$OLD_FILE" == "$NEW_FILE" ]; then
+      echo "exosite-cli environment is already $ENV_LABEL"
+      exit 0
+    fi
+    echo "Replacing existing symlink to file $OLD_FILE with $NEW_FILE"
+  elif [ -r "$BASE_FILE" ]; then
+    echo "Moving existing file $BASE_FILE to ${BASE_FILE}.old"
+    mv $BASE_FILE ${BASE_FILE}.old
+    if [ $? -ne 0 ]; then
+      echo "Environment change aborted: Failed to save backup configuration."
+      exit 1
+    fi
+  fi
+  ln -sf $NEW_FILE $BASE_FILE
+  echo "Changed exosite-cli environment to $ENV_LABEL"
+fi
+
+# vim: ai dy=lastline fcl=all fdls=0 fdm=marker sw=2 ts=2 ft=sh

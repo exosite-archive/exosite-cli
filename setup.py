@@ -30,7 +30,7 @@ setup(
     author_email = 'ivanlan@exosite.com',
     description = 'Command line interface for Exosite Murano.',
     long_description = long_description,
-    scripts = ['bin/exosite'],
+    scripts = ['bin/exosite', 'bin/exosite-config-env'],
     keywords = ['exosite', 'm2m', 'iot', 'cli', 'murano'],
     install_requires = required,
     classifiers = filter(None, classifiers.split("\n")),
